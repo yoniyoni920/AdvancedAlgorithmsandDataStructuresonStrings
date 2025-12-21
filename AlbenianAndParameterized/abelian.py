@@ -29,7 +29,7 @@ def alebian(t, p):
             diff += 1
     if diff == 0:  # report position i
             matches.append(0)
-    # Step 2: Sliding - O(n)
+    #Sliding - O(n)
     for i in range(1, n - m + 1):
         # Check if current window matches
 
