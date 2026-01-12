@@ -302,7 +302,7 @@ def main():
     #Longest Repeated Sequence
     print(f"Longest Repeated Sequence Length: {s_len}")
     print(f"Sequence: {sub}")
-    print("-" * 30)
+
 
     #ill add task topk repeated into this task
     #The most frequent repeated substring.
@@ -326,13 +326,15 @@ def main():
             'sequence': curr_sub,
             'frequency': curr_freq
         })
-
+    print("   " + "-" * 20)
     print(f"Most Frequent subSequence: {best_sub}")
     print(f"Length: {best_len}")
     print(f"Frequency: {best_freq}")
+    print("   " + "-" * 20)
     # we can now continue with the list of canidates to find top k
     #sort
 
+    print(f"\n Top {k} frequent Substrings  ")
     top_k_candidates = sorted(candidates, key=lambda x: (x['frequency'], x['length']), reverse=True)[:k]
     for i, can in enumerate(top_k_candidates, 1):
         print(f"{i}. Sequence: {can['sequence']} Length: {can['length']} | Frequency: {can['frequency']}")
