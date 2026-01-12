@@ -100,13 +100,13 @@ def summarize_motif(data, motifs, length, frequency, start_info):
 
         avg_mean = np.mean(means)
         avg_trend = np.mean(trends)
-        time_span = f"{int(min(motif_years))}–{int(max(motif_years))}"
+        time_span = f"{int(min(motif_years))} And {int(max(motif_years))}"
         trend_desc = "warming trend" if avg_trend > 0 else "cooling trend" if avg_trend < 0 else "stable pattern"
 
         summaries.append(
-            f"• Motif {prefix_ranks} appeared {count} times ({frequency}), "
+            f" Motif {prefix_ranks} appeared {count} times ({frequency}), "
             f"between {time_span}. "
-            f"It represents an average {trend_desc} of {avg_trend:.3f}°C over {length} units."
+            f"It represents an average {trend_desc} of {avg_trend:.3f}C over {length} units."
         )
 
     return summaries
@@ -266,7 +266,7 @@ def main():
             for prefix_ranks, (count, positions, windows) in opm_recurring_motifs[:top_n]:
                 f.write("\n" + "-" * 40)
                 f.write(f"\nMotif order representation: {prefix_ranks}")
-                f.write(f"\nOccurrences: {count}")
+                f.write(f"\nFrequency: {count}")
                 f.write(f"\nPositions: {positions}")
                 f.write(f"\nSubstrings: {windows}")
 
@@ -274,7 +274,7 @@ def main():
             for prefix_ranks, (count, positions, windows) in ctm_recurring_motifs[:top_n]:
                 f.write("\n" + "-" * 40)
                 f.write(f"\nMotif order representation: {prefix_ranks}")
-                f.write(f"\nOccurrences: {count}")
+                f.write(f"\nFrequency: {count}")
                 f.write(f"\nPositions: {positions}")
                 f.write(f"\nSubstrings: {windows}")
 
