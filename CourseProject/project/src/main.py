@@ -43,6 +43,115 @@ def load_data(filename):
            (annual_anom, start_year_annual)
 
 
+def plot_summary_across_lengths(summary_opm, summary_ctm, save_path):
+    """Plots a summary comparing the #1 motif across different lengths (L)."""
+
+
+    lengths = [x[0] for x in summary_opm]
+
+    # Prepare data for OPM
+    opm_counts = [x[1] for x in summary_opm]
+    opm_labels = [f"L={x[0]}\n{x[2]}" for x in summary_opm]  # Label: L=3 \n (1,2,3)
+
+    # Prepare data for CTM
+    ctm_counts = [x[1] for x in summary_ctm]
+    ctm_labels = [f"L={x[0]}\n{x[2]}" for x in summary_ctm]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 9))
+    fig.suptitle("Comparison of the Most Frequent Motif for Each Length (L)", fontsize=20)
+
+    # Plot OPM Summary
+    bars1 = ax1.bar(range(len(lengths)), opm_counts, color='royalblue', alpha=0.9, edgecolor='black')
+    ax1.set_title("Most Frequent OPM Motifs", fontsize=16)
+    ax1.set_ylabel("Frequency", fontsize=14)
+    ax1.set_xticks(range(len(lengths)))
+    ax1.set_xticklabels(opm_labels, fontsize=11, rotation=0)  # Shows motif at bottom
+    ax1.grid(axis='y', linestyle='--', alpha=0.5)
+
+    # Add count numbers
+    for bar in bars1:
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom', fontsize=12,
+                 fontweight='bold')
+
+    # Plot CTM Summary
+    bars2 = ax2.bar(range(len(lengths)), ctm_counts, color='crimson', alpha=0.9, edgecolor='black')
+    ax2.set_title("Most Frequent CTM Motifs", fontsize=16)
+    ax2.set_ylabel("Frequency", fontsize=14)
+    ax2.set_xticks(range(len(lengths)))
+    ax2.set_xticklabels(ctm_labels, fontsize=11, rotation=0)  # Shows motif at bottom
+    ax2.grid(axis='y', linestyle='--', alpha=0.5)
+
+    # Add count numbers
+    for bar in bars2:
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom', fontsize=12,
+                 fontweight='bold')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(save_path, dpi=300)
+    plt.close(fig)
+
+
+def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_path, data, years):
+    """Generates a bar chart showing the motif representation (tuple) and frequency count."""
+
+    # Get top 10
+    top_opm = opm_motifs[:10]
+    top_ctm = ctm_motifs[:10]
+
+
+    opm_labels = [str(m[0]) for m in top_opm]
+    opm_counts = [m[1][0] for m in top_opm]
+
+    ctm_labels = [str(m[0]) for m in top_ctm]
+    ctm_counts = [m[1][0] for m in top_ctm]
+
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 10))
+    fig.suptitle(f"Top 10 Most Frequent Motifs (L={length}, {frequency})", fontsize=20)
+
+    # Plot OPM
+    if top_opm:
+        bars1 = ax1.bar(range(len(top_opm)), opm_counts, color='royalblue', alpha=0.8, edgecolor='black')
+        ax1.set_title("Order Preserving Motifs (OPM)", fontsize=16)
+        ax1.set_ylabel("Frequency", fontsize=14)
+
+
+        ax1.set_xticks(range(len(top_opm)))
+        ax1.set_xticklabels(opm_labels, rotation=45, ha='right', fontsize=11, fontweight='bold')
+
+        ax1.grid(axis='y', linestyle='--', alpha=0.5)
+
+        for bar in bars1:
+            height = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
+                     fontsize=12, fontweight='bold')
+    else:
+        ax1.text(0.5, 0.5, "No OPM Motifs found", ha='center')
+
+    # Plot CTM
+    if top_ctm:
+        bars2 = ax2.bar(range(len(top_ctm)), ctm_counts, color='crimson', alpha=0.8, edgecolor='black')
+        ax2.set_title("Cartesian Tree Motifs (CTM)", fontsize=16)
+        ax2.set_ylabel("Frequency", fontsize=12)
+
+
+        ax2.set_xticks(range(len(top_ctm)))
+        ax2.set_xticklabels(ctm_labels, rotation=45, ha='right', fontsize=11, fontweight='bold')
+
+        ax2.grid(axis='y', linestyle='--', alpha=0.5)
+
+        for bar in bars2:
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
+                     fontsize=12, fontweight='bold')
+    else:
+        ax2.text(0.5, 0.5, "No CTM Motifs found", ha='center')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(save_path, dpi=300)
+    plt.close(fig)
 # ---------------------------------------------
 # Analyze one motif group to describe its meaning
 # ---------------------------------------------
@@ -239,7 +348,11 @@ def main():
                 original_data = m_data
                 frequency = 'monthly'
                 time_info = (m_year, m_month)
-
+            y_start = time_info[0] if isinstance(time_info, tuple) else time_info
+            m_start = time_info[1] if isinstance(time_info, tuple) else 1
+            step = 1.0 if frequency == 'annual' else (1.0 / 12.0)
+            start_val = y_start + (m_start - 1) / 12.0
+            years = start_val + (np.arange(len(original_data)) * step)
             start = time.time()
             opm_recurring_motifs = sorted(order_preserving_match(data_to_match, length, k),
                                           key=lambda x: x[1][0], reverse=True)
@@ -260,7 +373,11 @@ def main():
             save_zoom = f"../output/Zoom_{frequency}_L{length}.png"
             plot_motifs(original_data, opm_recurring_motifs, ctm_recurring_motifs,
                         length, frequency, save_global, save_zoom, time_info)
+            save_bar = f"../output/BarChart_{frequency}_L{length}.png"
 
+            plot_top_motifs_barchart(opm_recurring_motifs, ctm_recurring_motifs,
+                                     length, frequency, save_bar,
+                                     original_data, years)
             # Write detailed motif data
             f.write("\n--- OPM Results ---\n")
             for prefix_ranks, (count, positions, windows) in opm_recurring_motifs[:top_n]:
