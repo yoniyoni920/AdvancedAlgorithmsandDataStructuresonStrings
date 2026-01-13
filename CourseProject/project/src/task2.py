@@ -447,7 +447,7 @@ def main():
         2. Runs 'find_longest_repeated_substring' to solve the first requirement.
         3. Iterates through all possible lengths (2 to N) to find the most frequent substring for each length.
         4. Displays the Top-K most frequent candidates.
-        5. Displays 'Maximal Repeats' for a specific threshold (e.g., L >= 6).
+        5. Displays 'Maximal Repeats' for a Preditermined threshold (e.g., L = [3,6,9,12]).
     """
     data_string = load_data('../dataset/Berkeley Earth global temperature.txt')
     k = 5
@@ -500,35 +500,36 @@ def main():
         print(f"{i}. Sequence: {can['sequence']} Length: {can['length']} | Frequency: {can['frequency']}")
 
     print("   " + "-" * 20)
-    L = 6
-    print(f"maximal repeats of length ≥  {L}")
-    #All maximal repeats of length ≥ L (for different values of L).(length >=l && only most Frequency)
-    top_candidates = sorted(candidates, key=lambda x: (x['frequency'], x['length']), reverse=True)
-    # sort by priority first frequency, then by length , only add the most left one - for each frequency highest length
-    maximal_repeats = []
+    L = [3,6,9,12]
+    for i in L:
+        print(f"maximal repeats of length ≥  {i}")
+        #All maximal repeats of length ≥ L (for different values of L).(length >=l && only most Frequency)
+        top_candidates = sorted(candidates, key=lambda x: (x['frequency'], x['length']), reverse=True)
+        # sort by priority first frequency, then by length , only add the most left one - for each frequency highest length
+        maximal_repeats = []
 
-    for freq, group in groupby(top_candidates, key=lambda x: x['frequency']):
-        keepers_for_this_freq = []
-        # group is a temporary list of all candidates with this specific frequency.
-        # Because we sorted by Length Descending previously, the Longest are at the top.
-        for cand in group:
-            is_redundant = False
-        # We ONLY compare against keepers of the SAME frequency.
-        # We also clear this list every time the frequency changes, keeping it small.
-            for existing in keepers_for_this_freq:
-                if cand['sequence'] in existing['sequence']:
-                    is_redundant = True
-                    break
+        for freq, group in groupby(top_candidates, key=lambda x: x['frequency']):
+            keepers_for_this_freq = []
+            # group is a temporary list of all candidates with this specific frequency.
+            # Because we sorted by Length Descending previously, the Longest are at the top.
+            for cand in group:
+                is_redundant = False
+            # We ONLY compare against keepers of the SAME frequency.
+            # We also clear this list every time the frequency changes, keeping it small.
+                for existing in keepers_for_this_freq:
+                    if cand['sequence'] in existing['sequence']:
+                        is_redundant = True
+                        break
 
-            if not is_redundant:
-                keepers_for_this_freq.append(cand)
-                maximal_repeats.append(cand)
+                if not is_redundant:
+                    keepers_for_this_freq.append(cand)
+                    maximal_repeats.append(cand)
 
-    cnt = 1
-    for can in maximal_repeats:
-        if can['length']>=L:
-            print(f"{cnt}. Sequence: {can['sequence']} Length: {can['length']} | Frequency: {can['frequency']}")
-            cnt += 1
+        cnt = 1
+        for can in maximal_repeats:
+            if can['length']>=i:
+                print(f"{cnt}. Sequence: {can['sequence']} Length: {can['length']} | Frequency: {can['frequency']}")
+                cnt += 1
 
 if __name__ == "__main__":
     main()
