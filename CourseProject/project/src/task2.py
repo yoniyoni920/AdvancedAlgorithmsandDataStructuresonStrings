@@ -5,24 +5,34 @@ sys.setrecursionlimit(300000)
 from itertools import groupby
 def build_lcp_array(text,suffix_array):
     """
-        Build the Longest Common Prefix (LCP) array for a given text and its suffix array.
-
-        LCP[i] stores the length of the longest common prefix between the
-        suffixes starting at positions suffix_array[i] and suffix_array[i + 1].
+        Constructs the Longest Common Prefix (LCP) array.
 
         Parameters:
-        ----------
-        text : str
-            The input string (e.g., DNA sequence).
+        -----------
+        text : str or list
+            The input sequence (e.g., DNA sequence or temperature tokens).
         suffix_array : list of int
-            The suffix array of the text.
+            The already computed Suffix Array for the text.
 
         Returns:
-        -------
+        --------
         lcp_array : list of int
-            The LCP array of length len(text) - 1.
+            An array where LCP[i] is the length of the longest common prefix
+            between the suffix at suffix_array[i] and suffix_array[i-1].
 
-        """
+        How it works (Kasai's Algorithm):
+        ---------------------------------
+        1. It computes the inverse of the Suffix Array (Rank array).
+        2. It iterates through the suffixes in their original text order.
+        3. For each suffix, it looks at its predecessor in the sorted Suffix Array.
+        4. It counts matching characters starting from the known overlap (k) from the previous step.
+        5. This achieves O(N) linear time complexity.
+
+        What it does:
+        -------------
+        Provides the core metric needed to find repeated substrings. High values in the LCP
+        array indicate long identical sequences.
+    """
     n = len(suffix_array)
     rank = [0] * n
     lcp_array = [0] * (n - 1)
@@ -46,12 +56,50 @@ def build_lcp_array(text,suffix_array):
     return lcp_array
 
 def to_int_array(text):
+    """
+        Converts a string of characters into a list of integers (ranks).
+
+        Parameters:
+        -----------
+        text : str
+            Input string.
+
+        Returns:
+        --------
+        list of int
+            The string represented as integers (1 to N based on alphabetical order).
+
+        Why it is needed:
+        -----------------
+        The DC3 algorithm works numerically. It needs to sort 'numbers', not raw characters.
+        """
     unique = sorted(set(text))
     mapping = {c: i+1 for i, c in enumerate(unique)}
     return [mapping[c] for c in text]
 
 
 def radix_sort(arr, key_index, max_key=None):
+    """
+        Stable sort for the DC3 algorithm.
+
+        Parameters:
+        -----------
+        arr : list
+            List of items (triplets) to sort.
+        key_index : int
+            The index within the triplet to sort by.
+        max_key : int (optional)
+            Maximum value in the array (for bucket sizing).
+
+        Returns:
+        --------
+        list
+            Sorted list.
+
+        What it does:
+        -------------
+        Sorts the triplets in O(N) time, preserving the relative order of items with equal keys.
+    """
     if max_key is None:
         max_key = max(item[key_index] for item in arr)
     count = [[] for _ in range(max_key + 1)]
@@ -64,6 +112,34 @@ def radix_sort(arr, key_index, max_key=None):
 
 
 def DC3(text):
+    """
+        Constructs the Suffix Array using the DC3 (Kärkkäinen-Sanders) algorithm.
+
+        Parameters:
+        -----------
+        text : list or str
+            The input sequence.
+
+        Returns:
+        --------
+        sa : list of int
+            The Suffix Array (indices of all suffixes sorted lexicographically).
+
+        How it works (The Divide & Conquer Strategy):
+        ---------------------------------------------
+        1. Divide: Splits suffixes into two sets:
+           - Set B12: Suffixes starting at indices i where i % 3 != 0.
+           - Set B0: Suffixes starting at indices i where i % 3 == 0.
+        2. Sort B12: Recursively sorts B12 by creating triplets and naming them.
+           If triplets are unique, we are done. If not, we call DC3 recursively.
+        3. Sort B0: Uses the result of B12 to easily sort B0.
+        4. Merge: Merges the sorted B12 and B0 sets (like Merge Sort) to produce the final array.
+
+        Complexity:
+        -----------
+        Time: O(N) - Linear time.
+        Space: O(N).
+    """
     arr12 = []
     if isinstance(text[0], str):  # text is characters
         text = to_int_array(text)
@@ -165,6 +241,27 @@ import sys
 sys.setrecursionlimit(300000)
 
 def compare_suffix(i, j, text, rank):
+    """
+        Compares two suffixes during the merge step of DC3.
+
+        Parameters:
+        -----------
+        i : int
+            Index of a suffix from set B0 (i % 3 == 0).
+        j : int
+            Index of a suffix from set B12 (j % 3 != 0).
+        rank : list
+            The inverse suffix array for B12 (allows O(1) comparison).
+
+        Returns:
+        --------
+        bool
+            True if suffix starting at i is smaller than suffix starting at j.
+
+        Logic:
+        ------
+        Uses the pre-computed ranks of the B12 suffixes to perform the comparison in constant time O(1).
+    """
     if j % 3 == 1:
         return (text[i], rank[i + 1] if i + 1 < len(rank) else 0) < (text[j], rank[j + 1] if j + 1 < len(rank) else 0)
     else:
@@ -174,8 +271,18 @@ def compare_suffix(i, j, text, rank):
 
 def load_data(filename):
     """
-    Loads data as a sequence of tokens.
-    For the algorithm, this LIST acts as the 'long string'.
+    Loads data as a sequence of tokens from the file.
+
+    Parameters:
+    -----------
+    filename : str
+        Path to the dataset file.
+
+    Returns:
+    --------
+    str
+        The concatenated string of all valid tokens in the file.
+        This effectively treats the entire file as one giant DNA-like sequence.
     """
     dataset_sequence = []
     full_string = ""
@@ -200,6 +307,26 @@ def load_data(filename):
 
 
 def find_longest_repeated_substring(data_string):
+    """
+        Identifies the longest substring that appears at least twice.
+
+        Parameters:
+        -----------
+        data_string : str
+            The input sequence.
+
+        Returns:
+        --------
+        tuple
+            (max_len, substring, count, positions)
+
+        How it works:
+        -------------
+        1. Builds the Suffix Array using DC3.
+        2. Builds the LCP Array.
+        3. Finds the maximum value in the LCP array. This value is the length of the longest repeat.
+        4. Extracts the actual substring using the Suffix Array index corresponding to that max LCP.
+    """
     if not data_string:
         return 0, [], 0, []
 
@@ -253,7 +380,29 @@ def find_longest_repeated_substring(data_string):
 
 def find_most_frequent_substring(data_string, suffix_array, lcp, length):
     """
-    Finds the most frequent exact motif of a specific length using DC3 & LCP.
+    Finds the motif of a specific length 'L' that appears most frequently.
+
+    Parameters:
+    -----------
+    data_string : str
+        The input sequence.
+    suffix_array : list
+        Precomputed Suffix Array.
+    lcp : list
+        Precomputed LCP Array.
+    length : int
+        The specific length we are investigating.
+
+    Returns:
+    --------
+    tuple
+        (length, motif_string, frequency)
+
+    How it works:
+    -------------
+    It iterates through the LCP array.
+    If LCP[i] >= length, it means the suffix at SA[i] and SA[i+1] share a prefix of at least 'length'.
+    This implies an occurrence. We count consecutive matches to find the frequency.
     """
     if not data_string or len(data_string) < length:
         return 0, "", 0
@@ -289,6 +438,17 @@ def find_most_frequent_substring(data_string, suffix_array, lcp, length):
 
 
 def main():
+    """
+        Main execution pipeline for Task 2 (Exact Mining).
+
+        Steps:
+        ------
+        1. Loads the data into a single long string.
+        2. Runs 'find_longest_repeated_substring' to solve the first requirement.
+        3. Iterates through all possible lengths (2 to N) to find the most frequent substring for each length.
+        4. Displays the Top-K most frequent candidates.
+        5. Displays 'Maximal Repeats' for a specific threshold (e.g., L >= 6).
+    """
     data_string = load_data('../dataset/Berkeley Earth global temperature.txt')
     k = 5
     candidates = []

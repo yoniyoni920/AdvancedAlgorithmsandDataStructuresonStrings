@@ -9,6 +9,31 @@ import numpy as np
 # Load the temperature anomaly dataset
 # ---------------------------------------------
 def load_data(filename):
+    """
+        Parses the Berkeley Earth global temperature dataset file.
+
+        Parameters:
+        -----------
+        filename : str
+            The path to the .txt file containing the dataset.
+
+        Returns:
+        --------
+        tuple
+            Returns two tuples:
+            1. (monthly_anom, start_year_monthly, start_month_monthly)
+            2. (annual_anom, start_year_annual)
+
+        How it works:
+        -------------
+        The function iterates through the file line by line. It skips comment lines (starting with '%').
+        It splits each line to extract the Year, Month, Monthly Anomaly (Column 3), and Annual Anomaly (Column 5).
+        It filters out 'NaN' values and stores the valid float data into lists.
+
+        What it does:
+        -------------
+        Converts the raw text file into usable Python lists for analysis.
+        """
     monthly_anom = []
     annual_anom = []
     start_year_monthly = None
@@ -44,8 +69,32 @@ def load_data(filename):
 
 
 def plot_summary_across_lengths(summary_opm, summary_ctm, save_path):
-    """Plots a summary comparing the #1 motif across different lengths (L)."""
+    """
+    Generates a summary plot comparing the top motif across different lengths (L).
 
+    Parameters:
+    -----------
+    summary_opm : list
+        List of tuples containing OPM results for different lengths.
+    summary_ctm : list
+        List of tuples containing CTM results for different lengths.
+    save_path : str
+        File path where the image will be saved.
+
+    Returns:
+    --------
+    None (Saves an image to disk).
+
+    How it works:
+    -------------
+    It extracts the frequency counts and motif labels from the input summaries.
+    It creates a side-by-side bar chart using Matplotlib: one subplot for OPM and one for CTM.
+    It annotates the bars with the exact frequency count.
+
+    What it does:
+    -------------
+    Visualizes how the most frequent pattern changes as we change the time scale (L).
+    """
 
     lengths = [x[0] for x in summary_opm]
 
@@ -94,8 +143,41 @@ def plot_summary_across_lengths(summary_opm, summary_ctm, save_path):
 
 
 def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_path, data, years):
-    """Generates a bar chart showing the motif representation (tuple) and frequency count."""
+    """
+    Generates a detailed bar chart of the top 10 most frequent motifs.
 
+    Parameters:
+    -----------
+    opm_motifs : list
+        List of OPM motifs found by the algorithm.
+    ctm_motifs : list
+        List of CTM motifs found by the algorithm.
+    length : int
+        The motif length (L) being analyzed.
+    frequency : str
+        'monthly' or 'annual'.
+    save_path : str
+        Path to save the .png file.
+    data : list
+        The raw temperature data (used for analysis logic if needed).
+    years : array
+        The years array corresponding to the data.
+
+    Returns:
+    --------
+    None (Saves an image to disk).
+
+    How it works:
+    -------------
+    1. Selects the top 10 motifs from OPM and CTM results.
+    2. Extracts the tuple representation (e.g., '(1, 2, 3)') to use as the X-axis label.
+    3. Plots two bar charts side-by-side: OPM (Blue) and CTM (Red).
+    4. Adds the exact frequency count on top of every bar.
+
+    What it does:
+    -------------
+    Provides a clear visual comparison of which specific patterns appear most often in the data.
+    """
     # Get top 10
     top_opm = opm_motifs[:10]
     top_ctm = ctm_motifs[:10]
@@ -156,7 +238,36 @@ def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_pat
 # Analyze one motif group to describe its meaning
 # ---------------------------------------------
 def analyze_motif_group(data, motifs, years, length):
-    """Analyze trend, mean, and time span for a given motif group."""
+    """
+    Calculates statistical properties of a specific motif group (Trend, Slope, Time Span).
+
+    Parameters:
+    -----------
+    data : list
+        The raw temperature data.
+    motifs : list
+        The specific motif group to analyze.
+    years : array
+        The years array matching the data.
+    length : int
+        The length (L) of the motif.
+
+    Returns:
+    --------
+    dict
+        A dictionary containing: Name, Count, Slope, Mean, Time Span, and Trend Type.
+
+    How it works:
+    -------------
+    It iterates over all starting 'positions' where this motif occurs.
+    For each occurrence, it slices the raw data to get the sequence.
+    It calculates the slope (End Value - Start Value) and the Mean.
+    It determines the trend (Warming if slope > 0, Cooling if slope < 0).
+
+    What it does:
+    -------------
+    Converts a raw motif (e.g., '(1,2,3)') into a meaningful description like "Warming Trend".
+    """
     if not motifs:
         return None
 
@@ -189,6 +300,37 @@ def analyze_motif_group(data, motifs, years, length):
 # Summarize motifs statistically (for text output)
 # ---------------------------------------------
 def summarize_motif(data, motifs, length, frequency, start_info):
+    """
+        Generates a text summary for the top 3 motifs to be written to the results file.
+
+        Parameters:
+        -----------
+        data : list
+            The raw data.
+        motifs : list
+            The list of found motifs.
+        length : int
+            Motif length L.
+        frequency : str
+            'monthly' or 'annual'.
+        start_info : tuple/int
+            Information about the start year/month.
+
+        Returns:
+        --------
+        list
+            A list of strings, where each string is a sentence describing a motif.
+
+        How it works:
+        -------------
+        It processes the top 3 motifs.
+        It calculates the average temperature change (trend) for each.
+        It constructs a formatted string describing the motif rank, count, time span, and physical meaning.
+
+        What it does:
+        -------------
+        Provides a human-readable summary for the 'analysis_results.txt' file.
+        """
     summaries = []
     if not motifs:
         return ["No motifs found."]
@@ -225,6 +367,46 @@ def summarize_motif(data, motifs, length, frequency, start_info):
 # Plot main time series, motif highlights, and interpretations
 # ---------------------------------------------
 def plot_motifs(data, motifs_opm, motifs_ctm, length, frequency, save_global, save_zoom, start_info):
+    """
+        Creates the main visualization: Global Time Series and Average Motif Shape.
+
+        Parameters:
+        -----------
+        data : list
+            Raw temperature data.
+        motifs_opm : list
+            List of OPM motifs.
+        motifs_ctm : list
+            List of CTM motifs.
+        length : int
+            Motif length L.
+        frequency : str
+            'monthly' or 'annual'.
+        save_global : str
+            Path to save global plot.
+        save_zoom : str
+            Path to save zoomed plot.
+        start_info : tuple/int
+            Start year/month info.
+
+        Returns:
+        --------
+        None (Saves images to disk).
+
+        How it works:
+        -------------
+        1. Plot 1 (Top): Plots the full temperature timeline (Gray).
+           It overlays the occurrences of the #1 OPM motif (Blue) and #1 CTM motif (Red).
+           It adds text boxes with statistical interpretation (Slope, Count).
+        2. Plot 2 (Bottom): Calculates the 'Average Shape' of the motif.
+           It takes all occurrences, normalizes them to 0-1 range, and computes the mean vector.
+           It visualizes this mean shape to show the abstract pattern.
+        3. Generates a second image (Zoomed View) focusing on the first occurrence of the OPM motif.
+
+        What it does:
+        -------------
+        Visualizes where the motifs appear in history and what their average shape looks like.
+        """
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(30, 9), gridspec_kw={'height_ratios': [2, 1]})
     fig.subplots_adjust(hspace=0.4)
 
@@ -325,6 +507,29 @@ def plot_motifs(data, motifs_opm, motifs_ctm, length, frequency, save_global, sa
 # Main Execution
 # ---------------------------------------------
 def main():
+    """
+        Main execution function for the Climate Motif Analysis.
+
+        Input:
+        ------
+        None (Reads files from '../dataset/' and calls other functions).
+
+        How it works:
+        -------------
+        1. Sets up output directories.
+        2. Loads the Berkeley Earth Dataset.
+        3. Scales float data to integers (x100) for algorithmic efficiency.
+        4. Loops through defined motif lengths L = [3, 6, 9, 12].
+        5. For each length:
+           - Runs 'order_preserving_match' (OPM) to find rank-based patterns.
+           - Runs 'discover_ctm_motifs' (CTM) to find tree-based patterns.
+           - Calls plotting functions to generate Time Series and Bar Charts.
+           - Writes a textual summary of the results to 'analysis_results.txt'.
+
+        What it does:
+        -------------
+        Orchestrates the entire project pipeline from data loading to result generation.
+        """
     os.makedirs('../output', exist_ok=True)
     (m_data, m_year, m_month), (a_data, a_year) = load_data('../dataset/Berkeley Earth global temperature.txt')
 
