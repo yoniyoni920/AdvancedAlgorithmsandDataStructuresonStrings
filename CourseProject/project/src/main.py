@@ -116,7 +116,7 @@ def summarize_motif(data, motifs, length, frequency, start_info):
 # Plot main time series, motif highlights, and interpretations
 # ---------------------------------------------
 def plot_motifs(data, motifs_opm, motifs_ctm, length, frequency, save_global, save_zoom, start_info):
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 9), gridspec_kw={'height_ratios': [2, 1]})
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(30, 9), gridspec_kw={'height_ratios': [2, 1]})
     fig.subplots_adjust(hspace=0.4)
 
     year = start_info[0] if isinstance(start_info, tuple) else start_info
