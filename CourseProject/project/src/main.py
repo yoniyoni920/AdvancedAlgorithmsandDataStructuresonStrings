@@ -3,6 +3,8 @@ from OPM import order_preserving_match
 from CTM import discover_ctm_motifs
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.patches as mpatches
+
 
 
 # ---------------------------------------------
@@ -67,6 +69,131 @@ def load_data(filename):
     return (monthly_anom, start_year_monthly, start_month_monthly), \
            (annual_anom, start_year_annual)
 
+
+# ---------------------------------------------
+# Analyze one motif group to describe its meaning
+# ---------------------------------------------
+def analyze_motif_group(data, motifs, years, length):
+    """
+    Calculates statistical properties of a specific motif group.
+    """
+    if not motifs:
+        return None
+
+    prefix_ranks, (count, positions, _) = motifs[0]
+    slopes, means, motif_years = [], [], []
+
+    for pos in positions:
+        seq = data[pos:pos + length]
+        if len(seq) == length:
+            slopes.append(seq[-1] - seq[0])
+            means.append(np.mean(seq))
+            motif_years.append(years[pos])
+
+    avg_slope = np.mean(slopes)
+    avg_mean = np.mean(means)
+    time_span = f"{int(min(motif_years))}–{int(max(motif_years))}"
+    trend_type = "warming trend" if avg_slope > 0 else "cooling trend" if avg_slope < 0 else "stable pattern"
+
+    return {
+        "name": prefix_ranks,
+        "count": count,
+        "slope": avg_slope,
+        "mean": avg_mean,
+        "time_span": time_span,
+        "trend_type": trend_type
+    }
+
+
+# ---------------------------------------------
+# Plot Grand Summary (Consolidated Single Graph)
+# ---------------------------------------------
+def plot_grand_summary(all_opm_data, all_ctm_data, save_path):
+    """
+    Plots a single Consolidated chart showing Top Motifs for ALL lengths mixed together.
+    """
+
+    colors_opm = {
+        3: '#87CEFA',
+        6: '#4169E1',
+        9: '#000080',
+        12: '#8A2BE2'
+    }
+
+    colors_ctm = {
+        3: '#FFD700',
+        6: '#FF4500',
+        9: '#B22222',
+        12: '#4B0082'
+    }
+    def flatten_and_sort(data_dict, limit=20):
+        combined_list = []
+        for length, motifs in data_dict.items():
+            for m in motifs:
+                m['origin_length'] = length
+                combined_list.append(m)
+
+        # Sort by Count (Frequency) Descending
+        combined_list.sort(key=lambda x: x['count'], reverse=True)
+        return combined_list[:limit]
+
+
+    top_opm_overall = flatten_and_sort(all_opm_data, limit=100)
+    top_ctm_overall = flatten_and_sort(all_ctm_data, limit=100)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(26, 12))
+    fig.suptitle("Comparison of Top Motifs Across All Lengths", fontsize=24, y=0.95)
+
+    # --- Plot OPM (Left) ---
+    if top_opm_overall:
+        counts = [m['count'] for m in top_opm_overall]
+        labels = [f"{m['tuple']}" for m in top_opm_overall]
+        bar_colors = [colors_opm.get(m['origin_length'], 'blue') for m in top_opm_overall]
+
+        bars = ax1.bar(range(len(counts)), counts, color=bar_colors, alpha=0.9, edgecolor='black')
+        ax1.set_ylabel("Frequency", fontsize=14)
+        ax1.set_title("Top OPM Motifs (All Lengths Mixed)", fontsize=18, fontweight='bold')
+        ax1.set_xticks(range(len(counts)))
+        ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=10, fontweight='bold')
+        ax1.grid(axis='y', linestyle='--', alpha=0.5)
+
+        for bar in bars:
+            height = bar.get_height()
+            ax1.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
+                     fontsize=11, fontweight='bold')
+
+        legend_patches = [mpatches.Patch(color=color, label=f'Length {L}') for L, color in colors_opm.items()]
+        ax1.legend(handles=legend_patches, title="Motif Length", fontsize=12)
+
+    else:
+        ax1.text(0.5, 0.5, "No Motifs Found", ha='center')
+
+    if top_ctm_overall:
+        counts = [m['count'] for m in top_ctm_overall]
+        labels = [f"{m['tuple']}" for m in top_ctm_overall]
+        bar_colors = [colors_ctm.get(m['origin_length'], 'red') for m in top_ctm_overall]
+
+        bars = ax2.bar(range(len(counts)), counts, color=bar_colors, alpha=0.9, edgecolor='black')
+        ax2.set_ylabel("Frequency", fontsize=14)
+        ax2.set_title("Top CTM Motifs (All Lengths Mixed)", fontsize=18, fontweight='bold')
+        ax2.set_xticks(range(len(counts)))
+        ax2.set_xticklabels(labels, rotation=45, ha='right', fontsize=10, fontweight='bold')
+        ax2.grid(axis='y', linestyle='--', alpha=0.5)
+
+        for bar in bars:
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
+                     fontsize=11, fontweight='bold')
+
+        legend_patches = [mpatches.Patch(color=color, label=f'Length {L}') for L, color in colors_ctm.items()]
+        ax2.legend(handles=legend_patches, title="Motif Length", fontsize=12)
+
+    else:
+        ax2.text(0.5, 0.5, "No Motifs Found", ha='center')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(save_path, dpi=300)
+    plt.close(fig)
 
 def plot_summary_across_lengths(summary_opm, summary_ctm, save_path):
     """
@@ -182,13 +309,28 @@ def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_pat
     top_opm = opm_motifs[:10]
     top_ctm = ctm_motifs[:10]
 
+    # Helper to generate detailed labels
+    def get_labels_and_data(motifs):
+        labels = []
+        counts = []
+        structured_data = []
+        for m in motifs:
+            info = analyze_motif_group(data, [m], years, length)
+            trend_name = info['trend_type'].replace(" trend", "").capitalize()
+            motif_string = str(m[0])
+            label = f"{trend_name}\n{motif_string}"
+            labels.append(label)
+            counts.append(m[1][0])
 
-    opm_labels = [str(m[0]) for m in top_opm]
-    opm_counts = [m[1][0] for m in top_opm]
+            structured_data.append({
+                'trend': trend_name,
+                'tuple': motif_string,
+                'count': m[1][0]
+            })
+        return labels, counts, structured_data
 
-    ctm_labels = [str(m[0]) for m in top_ctm]
-    ctm_counts = [m[1][0] for m in top_ctm]
-
+    opm_labels, opm_counts, opm_struct = get_labels_and_data(top_opm)
+    ctm_labels, ctm_counts, ctm_struct = get_labels_and_data(top_ctm)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 10))
     fig.suptitle(f"Top 10 Most Frequent Motifs (L={length}, {frequency})", fontsize=20)
@@ -198,13 +340,9 @@ def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_pat
         bars1 = ax1.bar(range(len(top_opm)), opm_counts, color='royalblue', alpha=0.8, edgecolor='black')
         ax1.set_title("Order Preserving Motifs (OPM)", fontsize=16)
         ax1.set_ylabel("Frequency", fontsize=14)
-
-
         ax1.set_xticks(range(len(top_opm)))
-        ax1.set_xticklabels(opm_labels, rotation=45, ha='right', fontsize=11, fontweight='bold')
-
+        ax1.set_xticklabels(opm_labels, rotation=45, ha='right', fontsize=10, fontweight='bold')
         ax1.grid(axis='y', linestyle='--', alpha=0.5)
-
         for bar in bars1:
             height = bar.get_height()
             ax1.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
@@ -217,13 +355,9 @@ def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_pat
         bars2 = ax2.bar(range(len(top_ctm)), ctm_counts, color='crimson', alpha=0.8, edgecolor='black')
         ax2.set_title("Cartesian Tree Motifs (CTM)", fontsize=16)
         ax2.set_ylabel("Frequency", fontsize=12)
-
-
         ax2.set_xticks(range(len(top_ctm)))
-        ax2.set_xticklabels(ctm_labels, rotation=45, ha='right', fontsize=11, fontweight='bold')
-
+        ax2.set_xticklabels(ctm_labels, rotation=45, ha='right', fontsize=10, fontweight='bold')
         ax2.grid(axis='y', linestyle='--', alpha=0.5)
-
         for bar in bars2:
             height = bar.get_height()
             ax2.text(bar.get_x() + bar.get_width() / 2., height, f'{int(height)}', ha='center', va='bottom',
@@ -234,6 +368,8 @@ def plot_top_motifs_barchart(opm_motifs, ctm_motifs, length, frequency, save_pat
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(save_path, dpi=300)
     plt.close(fig)
+
+    return opm_struct, ctm_struct
 # ---------------------------------------------
 # Analyze one motif group to describe its meaning
 # ---------------------------------------------
@@ -536,7 +672,8 @@ def main():
     SCALE = 100
     monthly_scaled = [int(round(x * SCALE)) for x in m_data]
     annual_scaled = [int(round(x * SCALE)) for x in a_data]
-
+    grand_summary_opm = {}
+    grand_summary_ctm = {}
     K = [2, 3, 5, 7, 10]  # Minimum motif frequencies
     lengths = [3,6,9,12]     # Motif lengths
     top_n = 10
@@ -580,9 +717,12 @@ def main():
                         length, frequency, save_global, save_zoom, time_info)
             save_bar = f"../output/BarChart_{frequency}_L{length}.png"
 
-            plot_top_motifs_barchart(opm_recurring_motifs, ctm_recurring_motifs,
-                                     length, frequency, save_bar,
-                                     original_data, years)
+            opm_data, ctm_data = plot_top_motifs_barchart(
+                opm_recurring_motifs, ctm_recurring_motifs,
+                length, frequency, save_bar,
+                original_data, years)
+            grand_summary_opm[length] = opm_data
+            grand_summary_ctm[length] = ctm_data
             # Write detailed motif data
             f.write("\n--- OPM Results ---\n")
             for prefix_ranks, (count, positions, windows) in opm_recurring_motifs[:top_n]:
@@ -604,10 +744,8 @@ def main():
             f.write("\n\n--- Interpretation Summary ---\n")
             opm_summary = summarize_motif(original_data, opm_recurring_motifs, length, frequency, time_info)
             ctm_summary = summarize_motif(original_data, ctm_recurring_motifs, length, frequency, time_info)
-
-            f.write("\n[OPM Summary]\n" + "\n".join(opm_summary))
-            f.write("\n\n[CTM Summary]\n" + "\n".join(ctm_summary))
-            f.write(f"\n\nExecution time: {run_time:.2f} seconds\n")
+        print("Generating Grand Summary Plot...")
+        plot_grand_summary(grand_summary_opm, grand_summary_ctm, "../output/Grand_Summary_All_Motifs.png")
 
     print("Analysis complete.")
     print("Results saved in '../output/analysis_results.txt'")
@@ -616,3 +754,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
