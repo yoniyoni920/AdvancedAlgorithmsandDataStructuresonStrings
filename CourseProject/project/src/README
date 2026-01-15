@@ -1,0 +1,13 @@
+Yuval Shahar 209455112
+Yoni Grinberg 307868257
+### Requirements
+- Python 3.8 or higher
+- Required Libraries:
+
+numpy – numerical operations and array handling
+
+matplotlib – visualization and plotting
+
+networkx – building and drawing Cartesian Trees
+
+os, time, itertools, sys, random – Python standard libraries

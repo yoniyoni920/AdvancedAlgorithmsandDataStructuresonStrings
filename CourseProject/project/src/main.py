@@ -4,8 +4,181 @@ from CTM import discover_ctm_motifs
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as mpatches
+import networkx as nx
 
 
+def plot_top_10_motifs_shapes(data, motifs, length, frequency, save_path, title_prefix):
+    """
+    Generates a line plot showing the normalized shapes of the top 10 most frequent motifs.
+
+    Parameters:
+    -----------
+    data : list
+        The raw temperature anomaly data.
+    motifs : list
+        The list of found motifs (OPM or CTM) sorted by frequency.
+    length : int
+        The length (L) of the motif.
+    frequency : str
+        'monthly' or 'annual' indicating the time scale.
+    save_path : str
+        The file path to save the resulting plot.
+    title_prefix : str
+        Prefix for the chart title (e.g., 'OPM' or 'CTM').
+
+    What the Axes Represent:
+    ------------------------
+    X-Axis (Time Steps): Represents the relative time progression within the motif.
+                         For L=3, steps are 0, 1, 2.
+    Y-Axis (Normalized Value): Represents the temperature anomaly scaled between 0 and 1.
+                               0 is the lowest point in that specific sequence, 1 is the highest.
+                               This allows for structural comparison regardless of absolute temperature.
+    """
+    if not motifs:
+        return
+
+    top_10 = motifs[:10]
+    plt.figure(figsize=(12, 7))
+
+    for i, (prefix_ranks, (count, positions, _)) in enumerate(top_10):
+        # We take the first occurrence of the motif to represent its shape
+        pos = positions[0]
+        seq = data[pos:pos + length]
+
+        # Min-Max Normalization to bring all shapes to the same 0-1 scale
+        seq_norm = (seq - np.min(seq)) / (np.ptp(seq) + 1e-8)
+
+        plt.plot(range(length), seq_norm, marker='o', linewidth=2,
+                 label=f"Rank {i + 1}: {prefix_ranks} ({count}x)")
+
+    plt.title(f"{title_prefix} - Top 10 Most Frequent Motifs \n(L={length}, {frequency})", fontsize=15)
+    plt.xlabel("Time Steps within Motif (Relative)", fontsize=12)
+    plt.ylabel("Normalized Anomaly Value (0-1)", fontsize=12)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def plot_ctm_tree(motif_tuple, length, count, save_path):
+    """
+        Visualizes a Cartesian Tree for a given CTM (Cartesian Tree Motif) motif.
+
+        Parameters
+        ----------
+        motif_tuple : tuple or list
+            The motif represented as a sequence or parent-distance vector.
+            Each element corresponds to a value in the motif.
+        length : int
+            Length of the motif (number of elements, L).
+        count : int
+            The frequency of this motif in the dataset.
+        save_path : str
+            File path to save the generated tree visualization as a PNG image.
+
+        Description
+        -----------
+        This function constructs a Cartesian Tree from the input motif, computes
+        hierarchical positions for the nodes, and generates a visual representation
+        using NetworkX and Matplotlib.
+
+        Workflow
+        --------
+        1. build_cartesian_tree(arr)
+           - Constructs the parent array for the motif using a stack-based approach.
+           - Each node points to its nearest smaller value to the left (parent).
+           - Time complexity: O(L) where L is the motif length.
+           - Output: parent array where parent[i] is the index of the parent of node i.
+
+        2. get_tree_pos(G, root, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5)
+           - Recursively calculates the (x, y) coordinates for each node.
+           - Ensures horizontal spacing between siblings and vertical spacing between levels.
+           - Returns a dictionary mapping nodes to positions for drawing.
+
+        3. Build DiGraph (G)
+           - Nodes correspond to elements of the motif.
+           - Edges represent parent-child relationships derived from the Cartesian Tree.
+           - The root node is automatically identified as the node with no parent.
+
+        4. Draw the tree using nx.draw()
+           - Nodes are colored light coral (#F08080).
+           - Labels display the actual motif values.
+           - Edges are gray arrows showing direction from parent to child.
+           - The figure is saved to `save_path` as a PNG.
+
+        Example
+        -------
+        >>> motif = [3, 1, 4, 2]
+        >>> plot_ctm_tree(motif, length=4, count=7, save_path='CTM_Tree_L4.png')
+        (Generates and saves a tree diagram showing the parent-child structure.)
+
+        Notes
+        -----
+        - Node size, font size, and arrow size are fixed for clarity.
+        - If the tree has no valid root, a spring layout is used as a fallback.
+        - Useful for visualizing motif patterns in time series or other sequence data.
+        """
+    def get_tree_pos(G, root, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5):
+        pos = {root: (xcenter, vert_loc)}
+        children = list(G.neighbors(root))
+        if children:
+            dx = width / len(children)
+            nextx = xcenter - width / 2 - dx / 2
+            for child in children:
+                nextx += dx
+                pos.update(get_tree_pos(G, child, width=dx, vert_gap=vert_gap,
+                                        vert_loc=vert_loc - vert_gap, xcenter=nextx))
+        return pos
+
+    def build_cartesian_tree(arr):
+        stack = []
+        parent = [-1] * len(arr)
+        for i in range(len(arr)):
+            last = -1
+            while stack and arr[stack[-1]] > arr[i]:
+                last = stack.pop()
+            if stack:
+                parent[i] = stack[-1]
+            if last != -1:
+                parent[last] = i
+            stack.append(i)
+        return parent
+
+    parent = build_cartesian_tree(motif_tuple)
+    G = nx.DiGraph()
+    root = -1
+    for i, p in enumerate(parent):
+        G.add_node(i)
+        if p != -1:
+            G.add_edge(p, i)
+        else:
+            root = i
+
+    pos = get_tree_pos(G, root) if root != -1 else nx.spring_layout(G)
+
+    plt.figure(figsize=(10, 6))
+
+    labels = {i: str(motif_tuple[i]) for i in G.nodes()}
+
+    nx.draw(
+        G, pos, with_labels=True, labels=labels,
+        node_size=1500, node_color='#F08080',
+        font_size=11, font_weight='bold',
+        arrows=True, arrowsize=20, edge_color='gray'
+    )
+
+    motif_str = ', '.join(map(str, motif_tuple))
+    title_text = f"CTM Motif Tree\n" \
+                 f"Pattern: ({motif_str})\n" \
+                 f"Length: {length} | Frequency: {count}"
+
+    plt.title(title_text, fontsize=14, fontweight='bold', pad=30)
+
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close()
 
 # ---------------------------------------------
 # Load the temperature anomaly dataset
@@ -703,6 +876,21 @@ def main():
             end = time.time()
             run_time = end - start
 
+            save_shapes_opm = f"../output/Top10_Shapes_OPM_L{length}.png"
+            save_shapes_ctm = f"../output/Top10_Shapes_CTM_L{length}.png"
+            #Generate Top10_shapes_OPM
+            plot_top_10_motifs_shapes(original_data, opm_recurring_motifs, length,
+                                      frequency, save_shapes_opm, "OPM")
+            #Generate Top10_shapes_CTM
+            plot_top_10_motifs_shapes(original_data, ctm_recurring_motifs, length,
+                                      frequency, save_shapes_ctm, "CTM")
+            # --- Draw CTM motif trees ---
+            os.makedirs('../output/CTM_Trees', exist_ok=True)
+            for i, (prefix_ranks, (count, positions, windows)) in enumerate(ctm_recurring_motifs[:5]):  # top 5
+                motif_tuple = prefix_ranks
+                tree_path = f"../output/CTM_Trees/CTM_Tree_L{length}_#{i + 1}.png"
+                plot_ctm_tree(motif_tuple, length, count, tree_path)
+
             f.write(f"\n=== Analysis for Motif Length {length} ({frequency}) ===\n")
             f.write(f"Minimum occurrences: {k}\n")
             f.write(f"Top {top_n} recurring motifs:\n")
@@ -746,7 +934,7 @@ def main():
             ctm_summary = summarize_motif(original_data, ctm_recurring_motifs, length, frequency, time_info)
         print("Generating Grand Summary Plot...")
         plot_grand_summary(grand_summary_opm, grand_summary_ctm, "../output/Grand_Summary_All_Motifs.png")
-
+    print(f"Run time: {run_time}")
     print("Analysis complete.")
     print("Results saved in '../output/analysis_results.txt'")
     print("Plots generated in '../output/' folder.")
