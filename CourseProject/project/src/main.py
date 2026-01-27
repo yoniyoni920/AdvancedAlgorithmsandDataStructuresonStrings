@@ -107,11 +107,6 @@ def plot_ctm_tree(motif_tuple, length, count, save_path):
            - Edges are gray arrows showing direction from parent to child.
            - The figure is saved to `save_path` as a PNG.
 
-        Example
-        -------
-        >>> motif = [3, 1, 4, 2]
-        >>> plot_ctm_tree(motif, length=4, count=7, save_path='CTM_Tree_L4.png')
-        (Generates and saves a tree diagram showing the parent-child structure.)
 
         Notes
         -----
